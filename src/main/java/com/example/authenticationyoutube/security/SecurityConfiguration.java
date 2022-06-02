@@ -1,7 +1,7 @@
 package com.example.authenticationyoutube.security;
 
 import com.example.authenticationyoutube.UserPrincipalDetailService;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.example.authenticationyoutube.repository.UserRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -9,9 +9,10 @@ import org.springframework.security.config.annotation.authentication.builders.Au
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.authentication.www.BasicAuthenticationEntryPoint;
 
 @Configuration
 @EnableWebSecurity
@@ -19,8 +20,11 @@ public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
 
     private final UserPrincipalDetailService userPrincipalDetailService;
 
-    public SecurityConfiguration(UserPrincipalDetailService userPrincipalDetailService) {
+    private UserRepository userRepository;
+
+    public SecurityConfiguration(UserPrincipalDetailService userPrincipalDetailService, UserRepository userRepository) {
         this.userPrincipalDetailService = userPrincipalDetailService;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -32,24 +36,36 @@ public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
 //                .withUser("temilade").password(passwordEncoder().encode("password")).roles("USER");
     }
 
+//    @Override
+//    protected void configure(HttpSecurity http) throws Exception {
+//        http.authorizeRequests().antMatchers("/api/users/welcome", "/signin", "/login").permitAll()
+//                .antMatchers("/api/users/index").hasAnyRole("USER", "ADMIN")
+//                .antMatchers("/api/users/admin").hasRole("ADMIN")
+//                .antMatchers("/api/users/user").hasRole("USER")
+//                .antMatchers("/api/users/dashboard").hasAuthority("LEVEL1")
+//                .antMatchers("/api/users/moshood").hasRole("ADMIN")
+//                .and()
+//                .formLogin()
+//                .usernameParameter("txtUsername")
+//                .passwordParameter("txtPassword")
+//                .loginPage("/signin").permitAll()
+//                .and()
+//                .logout().logoutRequestMatcher(new AntPathRequestMatcher("/logout")).logoutSuccessUrl("/signin")
+//                .and()
+//                .rememberMe();
+////                .httpBasic();
+//    }
+
     @Override
     protected void configure(HttpSecurity http) throws Exception {
-        http.authorizeRequests().antMatchers("/api/users/welcome", "/signin", "/login").permitAll()
-                .antMatchers("/api/users/index").hasAnyRole("USER", "ADMIN")
-                .antMatchers("/api/users/admin").hasRole("ADMIN")
-                .antMatchers("/api/users/user").hasRole("USER")
-                .antMatchers("/api/users/dashboard").hasAuthority("LEVEL1")
-                .antMatchers("/api/users/moshood").hasRole("ADMIN")
-                .and()
-                .formLogin()
-                .usernameParameter("txtUsername")
-                .passwordParameter("txtPassword")
-                .loginPage("/signin").permitAll()
-                .and()
-                .logout().logoutRequestMatcher(new AntPathRequestMatcher("/logout")).logoutSuccessUrl("/signin")
-                .and()
-                .rememberMe();
-//                .httpBasic();
+        http
+                .csrf().disable()
+                .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS).and()
+                .addFilter(new JwtAuthenticationFilter(authenticationManager()))
+                .addFilter(new JwtAuthorizationFilter(authenticationManager(), this.userRepository))
+                .authorizeRequests()
+                .antMatchers("/login", "/signin").permitAll()
+                .antMatchers("/api/public/*").hasRole("ADMIN");
     }
 
     @Bean
